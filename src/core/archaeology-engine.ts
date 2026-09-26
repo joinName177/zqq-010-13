@@ -6,6 +6,7 @@ import {
   EmotionalSediment,
   RelicCategory
 } from './models';
+import { CAPACITY_LIMITS, CapacityNotice, clipText } from './capacity-limits';
 
 const DICT = {
   warmth: ['喜欢', '想你', '爱你', '宝贝', '心疼', '抱抱', '开心', '可爱', '好甜', '晚安', '乖', '幸福'],
@@ -51,7 +52,9 @@ function extractTopics(texts: string[]): string[] {
     const cleaned = t.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ' ');
     const tokens = cleaned.split(/\s+/).filter(tok => tok.length >= 2 && !stopWords.has(tok));
     tokens.forEach(tok => {
-      wordsMap[tok] = (wordsMap[tok] || 0) + 1;
+      // \u5355\u4e2a\u8bdd\u9898\u6807\u7b7e\u9650\u957f\uff0c\u907f\u514d\u4e00\u6761\u8d85\u957f\u65e0\u5206\u9694\u6587\u672c\u6491\u7834\u6807\u7b7e\u4e91
+      const key = tok.length > CAPACITY_LIMITS.maxTopicChars ? clipText(tok, CAPACITY_LIMITS.maxTopicChars) : tok;
+      wordsMap[key] = (wordsMap[key] || 0) + 1;
     });
   });
 
@@ -65,9 +68,12 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
   const artifacts: FossilArtifact[] = [];
   if (messages.length === 0) return artifacts;
 
-  // Search for emotional extremes
-  const sortedByLength = [...messages].sort((a, b) => b.content.length - a.content.length);
-  const longest = sortedByLength[0];
+  // Search for emotional extremes.
+  // 线性扫描而非全量拷贝排序，超大消息量下避免 O(n log n) 拷贝卡顿。
+  let longest = messages[0];
+  for (let i = 1; i < messages.length; i++) {
+    if (messages[i].content.length > longest.content.length) longest = messages[i];
+  }
 
   if (longest && longest.content.length > 15) {
     let cat: RelicCategory = '深夜篝火';
@@ -90,7 +96,7 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       depthMeters: depthLevel * 2.4,
       dateStr: longest.timestamp.toISOString().split('T')[0],
       sender: longest.sender,
-      quote: longest.content.slice(0, 120) + (longest.content.length > 120 ? '...' : ''),
+      quote: clipText(longest.content, CAPACITY_LIMITS.maxQuoteChars),
       archaeologicalNotes: note,
       preservationScore: Math.min(98, 60 + Math.floor(Math.random() * 35))
     });
@@ -105,7 +111,7 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       depthMeters: 12.8,
       dateStr: messages[0].timestamp.toISOString().split('T')[0],
       sender: messages[0].sender,
-      quote: messages[0].content,
+      quote: clipText(messages[0].content, CAPACITY_LIMITS.maxQuoteChars),
       archaeologicalNotes: '双方建立双向电磁对话信道的最初始信号记录。',
       preservationScore: 99
     });
@@ -114,7 +120,11 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
   return artifacts;
 }
 
-export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时空坐标对话遗址'): ArchaeologyReport {
+export function analyzeChatStrata(
+  messages: ChatMessage[],
+  siteName = '未知时空坐标对话遗址',
+  capacityNotices: CapacityNotice[] = []
+): ArchaeologyReport {
   if (messages.length === 0) {
     throw new Error('聊天记录为空，无法进行地层切片勘探');
   }
@@ -198,6 +208,7 @@ export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时
     peakEpoch,
     coolingEpoch,
     archaeologicalSummary: `在跨度 ${totalDays} 天的 ${sorted.length} 条对话地质标本中，发现了清晰的5层沉积构造。深层基岩呈现强烈的初生结晶热能，中层胶结致密并出土高质量情感遗存，浅层表土存在一定程度的风化沉积。`,
-    curatorAssessment: carbon14Activity > 60 ? '高活力地质遗址 · 存在持续地热交换与同频共生迹象' : '渐次固化休眠地层 · 标本完整度极高，适合永久珍藏馆陈列'
+    curatorAssessment: carbon14Activity > 60 ? '高活力地质遗址 · 存在持续地热交换与同频共生迹象' : '渐次固化休眠地层 · 标本完整度极高，适合永久珍藏馆陈列',
+    capacityNotices
   };
 }

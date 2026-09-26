@@ -1,10 +1,12 @@
 import { ArchaeologyReport, StrataLayer } from '../core/models';
 import { SampleSite } from '../adapters/sample-data.adapter';
+import { CAPACITY_LIMITS } from '../core/capacity-limits';
 
 export interface UIEventHandlers {
   onSelectPreset: (siteId: string) => void;
   onUploadFile: (file: File) => void;
   onOpenReport: () => void;
+  onExportReport: () => void;
 }
 
 export function renderApp(
@@ -61,13 +63,26 @@ export function renderApp(
           <div class="drop-area" id="dropArea">
             <input type="file" id="chatFileInput" class="file-input" accept=".txt,.json,.csv" />
             <p>📄 拖拽或点击导入本地聊天记录文件 (支持微信/QQ/短信文本导出格式)</p>
-            <span style="font-size:12px;color:var(--text-muted);">纯前端本地地质切片计算，无任何网络传输</span>
+            <span style="font-size:12px;color:var(--text-muted);">纯前端本地地质切片计算，无任何网络传输 · 单文件 ≤ ${CAPACITY_LIMITS.maxFileBytes / 1024 / 1024}MB / ${CAPACITY_LIMITS.maxMessages.toLocaleString()} 条</span>
           </div>
           <button class="btn-report" id="btnOpenReport">
             📜 生成关系考古报告
           </button>
         </div>
       </section>
+
+      ${
+        report.capacityNotices.length > 0
+          ? `
+      <section class="capacity-banner" id="capacityBanner">
+        <div class="capacity-banner-title">⚠️ 容量保护已启用（核心统计均基于实际参与分析的记录，口径一致）</div>
+        <ul class="capacity-banner-list">
+          ${report.capacityNotices.map(n => `<li>${escapeHtml(n.message)}</li>`).join('')}
+        </ul>
+      </section>
+      `
+          : ''
+      }
 
       <main class="strata-layout">
         <!-- Left: Stratigraphic Column -->
@@ -237,8 +252,22 @@ export function renderApp(
               <p>“${escapeHtml(report.curatorAssessment)}”</p>
             </div>
 
-            <div class="report-actions">
+            ${
+              report.capacityNotices.length > 0
+                ? `
+            <div class="report-section report-capacity">
+              <h4>⚠️ 容量保护说明：</h4>
+              <ul>
+                ${report.capacityNotices.map(n => `<li>${escapeHtml(n.message)}</li>`).join('')}
+              </ul>
+            </div>
+            `
+                : ''
+            }
+
+            <div class="report-actions report-actions-no-print">
               <button class="btn-secondary" id="btnCloseReport">关闭报告</button>
+              <button class="btn-secondary" id="btnExportReport">💾 导出文本档案</button>
               <button class="btn-report" onclick="window.print()">🖨️ 打印 / 保存标本档案</button>
             </div>
           </div>
@@ -296,6 +325,10 @@ export function renderApp(
 
   container.querySelector('#btnCloseReport')?.addEventListener('click', () => {
     onCloseReport();
+  });
+
+  container.querySelector('#btnExportReport')?.addEventListener('click', () => {
+    handlers.onExportReport();
   });
 
   container.querySelector('#reportOverlay')?.addEventListener('click', e => {

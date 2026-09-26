@@ -571,3 +571,114 @@ body {
 .btn-secondary:hover {
   border-color: var(--earth-accent);
 }
+
+/* Capacity guard banner */
+.capacity-banner {
+  background: rgba(244, 162, 97, 0.12);
+  border: 1px solid rgba(244, 162, 97, 0.45);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+.capacity-banner-title {
+  color: var(--ochre);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.capacity-banner-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.capacity-banner-list li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  color: var(--text-main);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.capacity-banner-list li::before {
+  content: '·';
+  position: absolute;
+  left: 4px;
+  color: var(--ochre);
+  font-weight: 700;
+}
+
+/* 长文本断行保护：超长无分隔串不得撑破化石卡片 / 标签云 / 地层卡片 */
+.topic-chip {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fossil-quote,
+.fossil-notes,
+.fossil-top,
+.layer-name,
+.detail-lithology {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.report-capacity ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-capacity li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.report-capacity li::before {
+  content: '·';
+  position: absolute;
+  left: 4px;
+  color: var(--ochre);
+  font-weight: 700;
+}
+
+/* 打印 / 导出边界：仅输出报告弹窗内容，隐藏操作按钮 */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .site-header,
+  .control-hub,
+  .capacity-banner,
+  .strata-layout {
+    display: none !important;
+  }
+
+  .modal-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .modal-content {
+    border: none;
+    box-shadow: none;
+    max-height: none;
+    padding: 0;
+    color: #000;
+  }
+
+  .report-actions-no-print {
+    display: none !important;
+  }
+}

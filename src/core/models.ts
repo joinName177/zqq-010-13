@@ -1,10 +1,13 @@
+import { CapacityNotice } from './capacity-limits';
+
 export interface ChatMessage {
   id: string;
   timestamp: Date;
   sender: string;
   content: string;
   sentimentScore: number; // -1.0 to 1.0
-  wordCount: number;
+  wordCount: number; // 按原文统计；content 被容量边界截断时仍反映真实长度
+  truncated?: boolean; // 原文超过 maxMessageChars 已被截断
 }
 
 export type RelicCategory = '初识刻石' | '誓约泥版' | '交锋裂痕' | '深夜篝火' | '寂静化石';
@@ -57,4 +60,6 @@ export interface ArchaeologyReport {
   coolingEpoch: string;
   archaeologicalSummary: string;
   curatorAssessment: string;
+  /** 容量保护触发记录：为保证浏览稳定而执行的截断/取样说明（无触发时为空数组）。 */
+  capacityNotices: CapacityNotice[];
 }
