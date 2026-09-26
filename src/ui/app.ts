@@ -1,10 +1,12 @@
 import { ArchaeologyReport, StrataLayer } from '../core/models';
 import { SampleSite } from '../adapters/sample-data.adapter';
+import { CAPACITY_LIMITS, clipText, formatBytes } from '../core/capacity-limits';
 
 export interface UIEventHandlers {
   onSelectPreset: (siteId: string) => void;
   onUploadFile: (file: File) => void;
   onOpenReport: () => void;
+  onExportReport: () => void;
 }
 
 export function renderApp(
@@ -16,12 +18,22 @@ export function renderApp(
   isReportOpen: boolean,
   handlers: UIEventHandlers,
   onSelectLayer: (idx: number) => void,
-  onCloseReport: () => void
+  onCloseReport: () => void,
+  capacityNotices: readonly string[] = []
 ) {
   const currentLayer = report.strata[selectedLayerIndex] || report.strata[0];
 
   const escapeHtml = (str: string) =>
     str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+
+  // UI 侧最后一道引用容量边界：化石引文统一裁剪后再渲染，防止超长文本撑破陈列。
+  const safeQuote = (quote: string) => escapeHtml(clipText(quote, CAPACITY_LIMITS.MAX_QUOTE_CHARS));
+  const capacityHint =
+    `单文件 ≤ ${formatBytes(CAPACITY_LIMITS.MAX_FILE_BYTES)} · ` +
+    `消息 ≤ ${CAPACITY_LIMITS.MAX_MESSAGES.toLocaleString()} 条 · ` +
+    `单条 ≤ ${CAPACITY_LIMITS.MAX_MESSAGE_CHARS.toLocaleString()} 字 · ` +
+    `化石引文 ≤ ${CAPACITY_LIMITS.MAX_QUOTE_CHARS} 字 · ` +
+    `导出 ≤ ${formatBytes(CAPACITY_LIMITS.MAX_EXPORT_BYTES)}`;
 
   container.innerHTML = `
     <div class="archaeo-app">
@@ -37,6 +49,15 @@ export function renderApp(
           <span>● 发掘就绪 | 标本勘测点：${escapeHtml(report.siteCode)}</span>
         </div>
       </header>
+
+      ${
+        capacityNotices.length > 0
+          ? `<section class="capacity-banner" role="status">
+               <span class="capacity-banner-icon">⚠️</span>
+               <div>${capacityNotices.map(n => `<p>${escapeHtml(n)}</p>`).join('')}</div>
+             </section>`
+          : ''
+      }
 
       <section class="control-hub">
         <div class="preset-sites">
@@ -61,7 +82,8 @@ export function renderApp(
           <div class="drop-area" id="dropArea">
             <input type="file" id="chatFileInput" class="file-input" accept=".txt,.json,.csv" />
             <p>📄 拖拽或点击导入本地聊天记录文件 (支持微信/QQ/短信文本导出格式)</p>
-            <span style="font-size:12px;color:var(--text-muted);">纯前端本地地质切片计算，无任何网络传输</span>
+            <span class="upload-capacity-hint">容量边界：${escapeHtml(capacityHint)}</span>
+            <span style="font-size:12px;color:var(--text-muted);">纯前端本地地质切片计算，无任何网络传输 · 超限文件将被安全拦截</span>
           </div>
           <button class="btn-report" id="btnOpenReport">
             📜 生成关系考古报告
@@ -179,7 +201,7 @@ export function renderApp(
                         <span class="fossil-badge">${escapeHtml(f.category)}</span>
                         <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.dateStr} · 发掘深度 -${f.depthMeters.toFixed(1)}m</span>
                       </div>
-                      <div class="fossil-quote">“${escapeHtml(f.quote)}”</div>
+                      <div class="fossil-quote" title="${safeQuote(f.quote)}">“${safeQuote(f.quote)}”</div>
                       <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.archaeologicalNotes)} (保存完好度: ${f.preservationScore}%)</div>
                     </div>
                   `
@@ -200,7 +222,7 @@ export function renderApp(
           <div class="modal-content">
             <div class="report-seal">国家地层考古认证</div>
             <div class="report-header">
-              <h2>《${escapeHtml(report.siteName)}》关系考古发掘总报告</h2>
+              <h2>《${escapeHtml(clipText(report.siteName, CAPACITY_LIMITS.MAX_SITE_NAME_CHARS))}》关系考古发掘总报告</h2>
               <div class="report-sub">
                 ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${report.excavatedAt}
               </div>
@@ -239,6 +261,7 @@ export function renderApp(
 
             <div class="report-actions">
               <button class="btn-secondary" id="btnCloseReport">关闭报告</button>
+              <button class="btn-secondary" id="btnExportReport">💾 导出有界文本档案</button>
               <button class="btn-report" onclick="window.print()">🖨️ 打印 / 保存标本档案</button>
             </div>
           </div>
@@ -285,6 +308,10 @@ export function renderApp(
 
   container.querySelector('#btnOpenReport')?.addEventListener('click', () => {
     handlers.onOpenReport();
+  });
+
+  container.querySelector('#btnExportReport')?.addEventListener('click', () => {
+    handlers.onExportReport();
   });
 
   container.querySelectorAll('.strata-card').forEach(card => {
